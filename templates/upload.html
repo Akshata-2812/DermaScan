@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Skin Disease Detection</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>                    
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #fffafa;
+            color: #242424;
+        }
+    
+        header {
+            background: #1F4959;
+            color: #FFFFFF;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.8em;
+            font-weight: 600;
+        }
+    
+        nav {
+            text-align: center;
+            padding: 15px;
+            background: #011425;
+        }
+    
+        nav a {
+            color: #FFFFFF;
+            text-decoration: none;
+            padding: 12px 25px;
+            display: inline-block;
+            font-weight: 500;
+            transition: background 0.3s ease;
+        }
+    
+        nav a:hover {
+            background: #5C7C89;
+            border-radius: 5px;
+        }
+    
+        .container {
+            width: 90%;
+            max-width: 600px;
+            margin: 50px auto;
+            background: #EEF5FF; /* Light neutral background */
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+    
+        input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            margin-top: 20px;
+            border: 2px dashed #1F4959;
+            border-radius: 8px;
+            background: #F9FCFF;
+            cursor: pointer;
+        }
+    
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background-color: #1F4959;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.3s ease;
+        }
+    
+        button:hover {
+            background-color: #011425;
+        }
+    
+        .content {
+            background: #5C7C89;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
+            margin-top: 20px;
+            color: #FFFFFF;
+        }
+    
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #242424;
+        }
+    
+        #uploadedImage {
+            display: none;
+            margin-top: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
+            max-width: 100%;
+        }
+    
+        #video {
+            display: none;
+            width: 100%;
+            max-width: 400px;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+    
+        footer {
+            text-align: center;
+            padding: 15px;
+            background: #011425;
+            color: #FFFFFF;
+            font-weight: 500;
+            margin-top: 20px;
+        }
+    
+        .pink-heading {
+           color: #1F4959; /* Changed to brand color */
+           font-weight: bold;
+        }
+
+        #webcam-preview {
+            width: 300px;
+            border-radius: 10px;
+            border: 2px solid #ccc;
+        }
+        
+    </style>
+</head>
+
+<script>
+    let videoStream;
+
+    function startCamera() {
+let video = document.getElementById("video");
+let captureButton = document.getElementById("captureButton");
+
+navigator.mediaDevices.getUserMedia({ video: true })
+.then(stream => {
+    console.log("Camera access granted"); // Debugging log
+    videoStream = stream;
+    video.srcObject = stream;
+    video.style.display = "block";
+    captureButton.style.display = "block";
+        })
+.catch(error => {
+    console.error("Camera Error:", error); // Debugging log
+    alert("Camera access denied or not supported");
+        });
+    }
+
+
+    function takePicture() {
+        let video = document.getElementById("video");
+        let canvas = document.createElement("canvas");
+        let fileInput = document.getElementById("fileInput");
+        
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        videoStream.getTracks().forEach(track => track.stop());
+        video.style.display = "none";
+        document.getElementById("captureButton").style.display = "none";
+        
+        canvas.toBlob(blob => {
+            let file = new File([blob], "captured-image.jpg", { type: "image/jpeg" });
+            let dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+            uploadImage();
+        }, "image/jpeg");
+    }
+    
+
+</script>
+<script>
+    function uploadImage() {
+        console.log("Upload button clicked!"); // Debugging log
+        let formData = new FormData();
+        let fileInput = document.getElementById("fileInput");
+        let resultDiv = document.getElementById("result");
+
+        if (fileInput.files.length === 0) {
+            alert("Please select an image file.");
+            return;
+        }
+
+        formData.append("file", fileInput.files[0]);
+        console.log("File selected:", fileInput.files[0]); // Debugging log
+
+        resultDiv.innerHTML = "Processing...";
+
+        fetch("/predict", {
+        method: "POST",
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("Server Response:", data); // Debugging log
+        if (data.error) {
+            resultDiv.innerHTML = "Error: " + data.error;
+        } else {
+            resultDiv.innerHTML = 
+"Predicted Class: <strong>" + data.disease + "</strong><br>Confidence: <strong>" + 
+(data.confidence * 100).toFixed(2) + "%</strong><br><br>" +
+"<strong class='pink-heading'>Symptoms:</strong> " + data.details.Symptoms + "<br>" +
+"<strong class='pink-heading'>Possible Causes:</strong> " + data.details["Possible Causes"] + "<br>" ;
+
+
+            let uploadedImage = document.getElementById("uploadedImage");
+            uploadedImage.src = "/static/uploads/" + fileInput.files[0].name;
+            uploadedImage.style.display = "block";
+
+            // Assuming your uploaded images are saved in "static/uploads/"
+            data.image_path = "/static/uploads/" + fileInput.files[0].name;
+
+            // Store result JSON for saving later
+            window.latestResult = data;   
+
+
+        }
+    })
+    .catch(error => {
+        console.error("Fetch Error:", error);
+        resultDiv.innerHTML = "An error occurred. Please try again.";
+    });
+
+    // Store the prediction result in a hidden input field
+    const resultToSave = resultDiv.innerHTML;
+
+}
+</script>
+<script>
+        const webcamIP = '192.168.70.78';  
+
+        // Live Webcam Preview Update
+        setInterval(() => {
+            document.getElementById('webcam-preview').src = `http://${webcamIP}:8080/shot.jpg?t=${new Date().getTime()}`;
+        }, 1000);
+
+        function captureFromWebcam() {
+            const webcamUrl = `http://${webcamIP}:8080/shot.jpg`;
+
+            fetch(webcamUrl)
+                .then(res => res.blob())
+                .then(blob => {
+                    const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
+                    const formData = new FormData();
+                    formData.append("image", file);
+
+                    return fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                })
+                .then(res => res.text())
+                .then(data => {
+                    document.getElementById('result').innerHTML = data;
+                })
+                .catch(err => {
+                    alert("Capture failed: " + err);
+                });
+        }
+
+</script>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+<script>
+    var username = "{{ username }}";   // Pass username from Flask to JS (already declared in script.js)
+</script>
+
+
+<body>
+    <header>DermaScan</header>
+    <nav>
+        <a href="#home">Home</a>
+        <a href="#about">About</a>
+        <a href="#features">Features</a>
+        <a href="#contact">Contact</a>
+    </nav>
+    <div class="container" id="home">
+        <h2>Skin Diagnosis</h2>
+        <button onclick="startCamera()">Capture Photo</button>
+        <video id="video" autoplay></video>
+        <button id="captureButton" onclick="takePicture()" style="display:none;">Take Picture</button>
+        <input type="file" id="fileInput" accept="image/*">
+        <button onclick="uploadImage()">Upload and Predict</button>
+        <div id="result"></div>
+        <img id="uploadedImage" src="" width="300">
+        
+
+        
+
+        <script>
+            const username = "{{ username }}";
+            console.log("Username from Flask:", username);
+        </script>        
+
+        <!-- Hidden fields to store prediction -->
+<input type="hidden" id="predictedResult" />
+<input type="hidden" id="username" value="{{ request.args.get('username', '') }}" />
+<input type="hidden" id="username" value="{{ username }}" />
+<button onclick="savePrediction()">Save Result</button>
+
+        <!-- Previous button to go back to Login -->
+    <a href="/login"><button>← Previous</button></a>
+    <!-- Next button to go to Upload page -->
+<a href="/reports"><button>Next →</button></a>
+    </div>
+
+
+    <div class="content" id="about">
+            <h2>About</h2>
+            <p><b>"DermaScan - Where Technology meets Dermatology"</b></p>
+            <p>Our system detects various skin diseases with high accuracy, aiding in early diagnosis and treatment.</p>
+    </div>
+    <div class="content" id="features">
+            <h2>Features</h2>
+            <ul>
+                <li>Skin image analysis</li>
+                <li>Fast and accurate predictions</li>
+                <li>Detailed confidence levels</li>
+                <li>User-friendly interface</li>
+            </ul>
+    </div>
+    <div class="content" id="contact">
+            <h2>Contact</h2>
+            <p>For inquiries, email us at <strong>derma.scan@gmail.com</strong></p>
+    </div>
+    <footer>
+            &copy; 2025 DermaScan | All Rights Reserved
+    </footer>
+    </body>
+    </html>
